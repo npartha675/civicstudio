@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Canvas with Sticky Notes, PDFs, and Drawing</title>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;700&family=Patrick+Hand&family=Gochi+Hand&display=swap">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 5000px;
+            height: 5000px;
+            background-color: #ffffff;
+            transform-origin: top left;
+        }
+
+        .viewport {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            overflow: auto;
+            cursor: grab;
+        }
+
+        .control-buttons {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-buttons button {
+            background-color: #D8E2F1;
+            color: rgb(0, 0, 0);
+            border: none;
+            border-radius: 50px;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-buttons button img {
+            max-width: 100%;
+            /* Ensure the image fits inside the button */
+            max-height: 100%;
+            /* Ensure the image height fits */
+            width: auto;
+            /* Automatically adjust width */
+            height: auto;
+            /* Automatically adjust height */
+        }
+
+
+        .color-picker {
+            position: fixed;
+            top: 20px;
+            right: 60px;
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .color-picker input {
+            border: none;
+            width: 100%;
+        }
+
+        .color-picker button {
+            font-family: 'Open Sans', sans-serif;
+            border-radius: 5px;
+            border: none;
+        }
+
+        .zoom-buttons {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .zoom-buttons button {
+            background-color: #ffffff;
+            color: #95A3C2;
+            border: none;
+            /* border-radius: 8px; */
+            width: 50px;
+            height: 50px;
+            font-size: 40px;
+            cursor: pointer;
+            /* box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); */
+        }
+
+        .sticky-note {
+            position: absolute;
+            width: 200px;
+            height: 150px;
+            background-color: #ffeb3b;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            border: none;
+            overflow: hidden;
+            cursor: move;
+        }
+
+        .pdf-wrapper {
+            position: absolute;
+            border: 2px solid #D8E2F1;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            resize: both;
+            overflow: hidden;
+            cursor: move;
+        }
+
+        .pdf-wrapper iframe {
+            width: 100%;
+            height: 100%;
+        }
+
+        .qa-box {
+            position: fixed;
+            top: 190px;
+            right: 70px;
+            /* Moved to the left */
+            width: 300px;
+            height: 400px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            overflow-y: auto;
+            display: none;
+        }
+
+        .qa-block {
+            background-color: #e0f7fa;
+            margin: 10px;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            cursor: grab;
+            white-space: pre-wrap;
+            /* Preserve newlines */
+            display: inline-block;
+            max-width: 500px;
+            /* Maximum width */
+            width: auto;
+            /* Adjust width based on content */
+            height: auto;
+            /* Adjust height based on content */
+            overflow-wrap: break-word;
+            /* Handle long words */
+            position: relative;
+        }
+
+        .qa-block.dragging {
+            opacity: 0.5;
+        }
+
+        .delete-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgb(255, 255, 255);
+            color: rgb(0, 0, 0);
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 14px;
+            line-height: 18px;
+            text-align: center;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .qa-header {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .qa-header button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .qa-block.note {
+            background-color: #b1b1b1;
+            font-family: 'Gochi Hand', cursive;
+        }
+
+        .start-article-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .start-article-button button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        .start-article-button button:hover {
+            background-color: #218838;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<body>
+    <div class="viewport">
+        <div class="canvas-container" id="canvas">
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+    </div>
+    <div class="control-buttons">
+        <!-- <button id="addNoteButton">+</button> -->
+        <button id="addNoteButton">
+            <img src="icons/stickynote-icon.png" alt="Add Note">
+        </button>
+        <button id="uploadPdfButton">
+            <img src="icons/upload-icon.png" alt="Upload Source">
+        </button>
+        <input type="file" id="fileInput" accept="application/pdf" style="display: none;">
+        <button id="drawButton">
+            <img src="icons/draw-icon.png" alt="Draw">
+        </button>
+        <button id="qaButton">T</button>
+        <button id="clearButton">
+            <img src="icons/clear-icon.png" alt="Clear">
+        </button>
+
+    </div>
+    <div class="color-picker" id="colorPicker">
+        <label for="colorInput">Choose Note Color:</label>
+        <input type="color" id="colorInput" value="#ffeb3b">
+        <button class="notebutton" id="createNoteButton">Create Note</button>
+    </div>
+    <div class="qa-box" id="qaBox"></div>
+    <div class="zoom-buttons">
+        <button id="zoomInButton"><i class="fas fa-search-plus"></i></button>
+        <button id="zoomOutButton"><i class="fas fa-search-minus"></i></button>
+    </div>
+
+    <div class="start-article-button">
+        <button id="startArticleButton">Start Writing Article</button>
+    </div>
+
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const drawingCanvas = document.getElementById('drawingCanvas');
+        const addNoteButton = document.getElementById('addNoteButton');
+        const uploadPdfButton = document.getElementById('uploadPdfButton');
+        const fileInput = document.getElementById('fileInput');
+        const drawButton = document.getElementById('drawButton');
+        const zoomInButton = document.getElementById('zoomInButton');
+        const zoomOutButton = document.getElementById('zoomOutButton');
+        const viewport = document.querySelector('.viewport');
+        const colorPicker = document.getElementById('colorPicker');
+        const colorInput = document.getElementById('colorInput');
+        const createNoteButton = document.getElementById('createNoteButton');
+        const qaButton = document.getElementById('qaButton');
+        const qaBox = document.getElementById('qaBox');
+        const qaLists = {
+            interviewee1: [
+                "Q: What is your name?\nA: My name is Alice.",
+                "Q: What is your favorite color?\nA: My favorite color is blue.",
+                "Note: Favorite color is blue this can be important for so and so reason",
+                "Q: Where are you from?\nA: I am from New York."
+            ],
+            interviewee2: [
+                "Q: What is your name?\nA: My name is Bob.",
+                "Q: What is your favorite hobby?\nA: I enjoy hiking.",
+                "Q: What do you do?\nA: I am a software engineer."
+            ],
+            interviewee3: [
+                "Q: What is your name?\nA: My name is Carol.",
+                "Q: What is your profession?\nA: I am a doctor.",
+                "Q: What is your favorite book?\nA: My favorite book is 'To Kill a Mockingbird.'"
+            ]
+        };
+
+        let currentQAList = qaLists.interviewee1;
+
+
+
+        let zoomLevel = 1;
+        let isPanning = false;
+        let startX, startY;
+        let isDrawing = false;
+        let drawingContext;
+
+        // Initialize the drawing canvas
+        drawingCanvas.width = 5000;
+        drawingCanvas.height = 5000;
+        drawingCanvas.style.position = 'absolute';
+        drawingCanvas.style.top = '0';
+        drawingCanvas.style.left = '0';
+        drawingContext = drawingCanvas.getContext('2d');
+
+        qaButton.addEventListener('click', () => {
+            qaBox.style.display = qaBox.style.display === 'none' ? 'block' : 'none';
+            populateQABox();
+        });
+
+        function populateQABox() {
+            const qaHeader = `
+                <div class="qa-header">
+                    <button id="interviewee1">1</button>
+                    <button id="interviewee2">2</button>
+                    <button id="interviewee3">3</button>
+                </div>
+            `;
+            qaBox.innerHTML = qaHeader;
+
+            currentQAList.forEach((qa, index) => {
+                const block = document.createElement('div');
+                block.className = 'qa-block';
+                block.textContent = qa;
+                block.draggable = true;
+                block.dataset.index = index;
+
+                // Check if the string starts with "Note:" and apply the special class
+                if (qa.startsWith("Note:")) {
+                    block.classList.add('note');
+                }
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.textContent = '×';
+                deleteButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    block.remove();
+                });
+
+                block.appendChild(deleteButton);
+
+                block.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', qa);
+                    block.classList.add('dragging');
+                });
+
+                block.addEventListener('dragend', () => {
+                    block.classList.remove('dragging');
+                });
+
+                qaBox.appendChild(block);
+            });
+            // Reattach event listeners for interviewee buttons
+            document.getElementById('interviewee1').addEventListener('click', () => switchInterviewee('interviewee1'));
+            document.getElementById('interviewee2').addEventListener('click', () => switchInterviewee('interviewee2'));
+            document.getElementById('interviewee3').addEventListener('click', () => switchInterviewee('interviewee3'));
+        }
+
+        function switchInterviewee(interviewee) {
+            currentQAList = qaLists[interviewee]; // Update the active list
+            populateQABox(); // Refresh the Q&A box
+        }
+
+        // Handle dropping on the canvas
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+
+            const qaText = e.dataTransfer.getData('text/plain');
+            const block = document.createElement('div');
+            block.className = 'qa-block';
+
+            // Check if the string starts with "Note:" and apply the special class
+            if (qaText.startsWith("Note:")) {
+                block.classList.add('note');
+            }
+
+            block.textContent = qaText;
+            block.style.position = 'absolute';
+            block.style.left = `${e.clientX + viewport.scrollLeft}px`;
+            block.style.top = `${e.clientY + viewport.scrollTop}px`;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete-button';
+            deleteButton.textContent = '×';
+            deleteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                block.remove();
+            });
+
+            block.appendChild(deleteButton);
+
+            canvas.appendChild(block);
+            makeDraggable(block);
+        });
+
+
+        // Make blocks draggable on the canvas
+        function makeDraggable(element) {
+            let offsetX, offsetY;
+            let isDragging = false;
+
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offsetX = e.clientX - element.offsetLeft;
+                offsetY = e.clientY - element.offsetTop;
+                element.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                element.style.cursor = 'grab';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                element.style.left = `${e.clientX - offsetX}px`;
+                element.style.top = `${e.clientY - offsetY}px`;
+            });
+        }
+
+        // Allow dragging the canvas (infinite scroll-like behavior)
+        // viewport.addEventListener('mousedown', (e) => {
+        //     if (isDrawing) return;
+        //     isPanning = true;
+        //     startX = e.clientX - viewport.scrollLeft;
+        //     startY = e.clientY - viewport.scrollTop;
+        //     viewport.style.cursor = 'grabbing';
+        // });
+
+        viewport.addEventListener('mouseup', () => {
+            isPanning = false;
+            viewport.style.cursor = 'grab';
+        });
+
+        // viewport.addEventListener('mousemove', (e) => {
+        //     if (isDrawing || !isPanning) return;
+        //     viewport.scrollLeft = startX - e.clientX;
+        //     viewport.scrollTop = startY - e.clientY;
+        // });
+
+        // Show color picker before creating a sticky note
+        addNoteButton.addEventListener('click', () => {
+            colorPicker.style.display = 'flex';
+        });
+
+        // Create sticky note with selected color
+        createNoteButton.addEventListener('click', () => {
+            const color = colorInput.value;
+
+            const stickyNote = document.createElement('textarea');
+            stickyNote.className = 'sticky-note';
+            stickyNote.style.backgroundColor = color;
+            stickyNote.style.top = `${viewport.scrollTop + 100}px`;
+            stickyNote.style.left = `${viewport.scrollLeft + 100}px`;
+            canvas.appendChild(stickyNote);
+            makeDraggable(stickyNote);
+
+            colorPicker.style.display = 'none';
+        });
+
+        // Open file dialog when clicking upload button
+        uploadPdfButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Handle PDF upload
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+
+                const pdfWrapper = document.createElement('div');
+                pdfWrapper.className = 'pdf-wrapper';
+                pdfWrapper.style.width = '300px';
+                pdfWrapper.style.height = '400px';
+                pdfWrapper.style.top = `${viewport.scrollTop + 100}px`;
+                pdfWrapper.style.left = `${viewport.scrollLeft + 100}px`;
+
+                const iframe = document.createElement('iframe');
+                iframe.src = fileURL;
+                pdfWrapper.appendChild(iframe);
+
+                canvas.appendChild(pdfWrapper);
+                makeDraggable(pdfWrapper);
+            }
+        });
+
+        // Make elements draggable
+        function makeDraggable(element) {
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offsetX = e.clientX - element.offsetLeft;
+                offsetY = e.clientY - element.offsetTop;
+                element.style.cursor = 'grabbing';
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+                element.style.cursor = 'move';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                element.style.left = `${e.clientX - offsetX}px`;
+                element.style.top = `${e.clientY - offsetY}px`;
+            });
+        }
+
+        // Zoom in functionality
+        zoomInButton.addEventListener('click', () => {
+            zoomLevel += 0.1;
+            canvas.style.transform = `scale(${zoomLevel})`;
+        });
+
+        // Zoom out functionality
+        zoomOutButton.addEventListener('click', () => {
+            zoomLevel = Math.max(zoomLevel - 0.1, 0.1);
+            canvas.style.transform = `scale(${zoomLevel})`;
+        });
+
+        // Drawing functionality
+        drawButton.addEventListener('click', () => {
+            isDrawing = !isDrawing;
+            drawButton.style.backgroundColor = isDrawing ? '#28a745' : '#D8E2F1';
+        });
+
+        drawingCanvas.addEventListener('mousedown', (e) => {
+            if (!isDrawing) return;
+            drawingContext.beginPath();
+            drawingContext.moveTo(e.offsetX, e.offsetY);
+            drawingCanvas.addEventListener('mousemove', draw);
+        });
+
+        drawingCanvas.addEventListener('mouseup', () => {
+            if (isDrawing) {
+                drawingCanvas.removeEventListener('mousemove', draw);
+            }
+        });
+
+        function draw(e) {
+            drawingContext.lineTo(e.offsetX, e.offsetY);
+            drawingContext.strokeStyle = 'black';
+            drawingContext.lineWidth = 2;
+            drawingContext.stroke();
+        }
+        const startArticleButton = document.getElementById('startArticleButton');
+
+        function saveCanvasState() {
+            // Save canvas content as an image (Base64 encoded)
+            const canvasData = drawingCanvas.toDataURL();
+            localStorage.setItem('canvasState', canvasData);
+
+            // Save sticky notes and other draggable elements
+            const stickyNotes = [...canvas.querySelectorAll('.sticky-note')].map(note => ({
+                content: note.value,
+                top: note.style.top,
+                left: note.style.left,
+                backgroundColor: note.style.backgroundColor,
+            }));
+            localStorage.setItem('stickyNotes', JSON.stringify(stickyNotes));
+
+            // Save Q&A blocks
+            const qaBlocks = [...canvas.querySelectorAll('.qa-block')].map(block => ({
+                content: block.textContent,
+                top: block.style.top,
+                left: block.style.left,
+                isNote: block.classList.contains('note'), // Check if it's a "note"
+            }));
+            localStorage.setItem('qaBlocks', JSON.stringify(qaBlocks));
+
+            // Save PDFs
+            const pdfWrappers = [...canvas.querySelectorAll('.pdf-wrapper')].map(wrapper => ({
+                src: wrapper.querySelector('iframe').src,
+                top: wrapper.style.top,
+                left: wrapper.style.left,
+                width: wrapper.style.width,
+                height: wrapper.style.height,
+            }));
+            localStorage.setItem('pdfWrappers', JSON.stringify(pdfWrappers));
+        }
+
+        const clearButton = document.getElementById('clearButton');
+
+        clearButton.addEventListener('click', () => {
+            // Clear canvas
+            drawingContext.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+
+            // Remove all sticky notes, Q&A blocks, and PDFs
+            document.querySelectorAll('.sticky-note, .qa-block, .pdf-wrapper').forEach(element => {
+                element.remove();
+            });
+
+            // Clear saved state from localStorage
+            localStorage.removeItem('canvasState');
+            localStorage.removeItem('stickyNotes');
+            localStorage.removeItem('qaBlocks');
+            localStorage.removeItem('pdfWrappers');
+        });
+
+
+        // Attach saveCanvasState to the "Start Writing Article" button
+        startArticleButton.addEventListener('click', () => {
+            saveCanvasState();
+            window.location.href = 'edit-article.html';
+        });
+
+        function restoreCanvasState() {
+            // Restore canvas content if saved
+            const canvasData = localStorage.getItem('canvasState');
+            if (canvasData) {
+                const img = new Image();
+                img.src = canvasData;
+                img.onload = () => drawingContext.drawImage(img, 0, 0);
+            }
+
+            // Restore sticky notes and other draggable elements
+            const stickyNotes = JSON.parse(localStorage.getItem('stickyNotes') || '[]');
+            stickyNotes.forEach(note => {
+                const stickyNote = document.createElement('textarea');
+                stickyNote.className = 'sticky-note';
+                stickyNote.value = note.content;
+                stickyNote.style.top = note.top;
+                stickyNote.style.left = note.left;
+                stickyNote.style.backgroundColor = note.backgroundColor;
+                canvas.appendChild(stickyNote);
+                makeDraggable(stickyNote);
+            });
+
+            // Restore Q&A blocks
+            const qaBlocks = JSON.parse(localStorage.getItem('qaBlocks') || '[]');
+            qaBlocks.forEach(block => {
+                const qaBlock = document.createElement('div');
+                qaBlock.className = 'qa-block';
+                if (block.isNote) qaBlock.classList.add('note'); // Apply "note" styling
+                qaBlock.textContent = block.content;
+                qaBlock.style.position = 'absolute';
+                qaBlock.style.top = block.top;
+                qaBlock.style.left = block.left;
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-button';
+                deleteButton.textContent = '×';
+                deleteButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    qaBlock.remove();
+                });
+
+                qaBlock.appendChild(deleteButton);
+                canvas.appendChild(qaBlock);
+                makeDraggable(qaBlock);
+            });
+
+            // Restore PDFs
+            const pdfWrappers = JSON.parse(localStorage.getItem('pdfWrappers') || '[]');
+            pdfWrappers.forEach(wrapper => {
+                const pdfWrapper = document.createElement('div');
+                pdfWrapper.className = 'pdf-wrapper';
+                pdfWrapper.style.position = 'absolute';
+                pdfWrapper.style.top = wrapper.top;
+                pdfWrapper.style.left = wrapper.left;
+                pdfWrapper.style.width = wrapper.width;
+                pdfWrapper.style.height = wrapper.height;
+
+                const iframe = document.createElement('iframe');
+                iframe.src = wrapper.src;
+                pdfWrapper.appendChild(iframe);
+
+                canvas.appendChild(pdfWrapper);
+                makeDraggable(pdfWrapper);
+            });
+        }
+
+        // Call restoreCanvasState when the page loads
+        document.addEventListener('DOMContentLoaded', restoreCanvasState);
+
+
+
+    </script>
+</body>
+
+</html>
